@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  balancer:
+    build:
+      context: ./load_balancer
+    container_name: balancer
+    ports:
+      - "5001:5000"
+    networks:
+      - n1
+    depends_on:
+      - server1
+      - server2
+      - server3
+
+  server1:
+    build:
+      context: ./server
+    container_name: Server1
+    environment:
+      - SERVER_ID=Server1
+    networks:
+      - n1
+
+  server2:
+    build:
+      context: ./server
+    container_name: Server2
+    environment:
+      - SERVER_ID=Server2
+    networks:
+      - n1
+
+  server3:
+    build:
+      context: ./server
+    container_name: Server3
+    environment:
+      - SERVER_ID=Server3
+    networks:
+      - n1
+
+networks:
+  n1:
+    driver: bridge
+
