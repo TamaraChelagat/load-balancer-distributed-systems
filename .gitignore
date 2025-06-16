@@ -1,3 +1,41 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+
+# Virtual environment
+venv/
+
+# Environment variables and credentials
+.env
+
+# Docker-related
+*.log
+*.pid
+docker-compose.override.yml
+
+# Editor & system files
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Python dependency files
+pip-wheel-metadata/
+*.egg-info/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore test output or coverage reports
+.coverage
+htmlcov/
+*.cover
+nosetests.xml
+coverage.xml
+*.log
 __pycache__/
 *.pyc
 .env
