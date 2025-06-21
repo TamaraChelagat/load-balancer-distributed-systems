@@ -4,7 +4,7 @@ services:
       context: ./load_balancer
     container_name: balancer
     ports:
-      - "5001:5000"
+      - "5000:5000"
     networks:
       - n1
     depends_on:

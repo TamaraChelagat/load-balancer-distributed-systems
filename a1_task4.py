@@ -3,8 +3,8 @@ import aiohttp
 import matplotlib.pyplot as plt
 from collections import Counter
 
-BALANCER_URL = "http://localhost:5001"
-NUM_REQUESTS = 100
+BALANCER_URL = "http://localhost:5000"
+NUM_REQUESTS = 1000
 
 # Store counts per server
 server_hits = Counter()
