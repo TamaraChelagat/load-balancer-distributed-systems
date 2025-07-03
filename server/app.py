@@ -10,10 +10,12 @@ SERVER_ID = os.getenv("SERVER_ID", "unknown")
 
 #TASK1
 #1.Endpoint(/home, method=GET)
-@app.route("/home", methods=["GET"])
-def home():
+@app.route("/home", defaults={"path": ""})
+@app.route("/home/<path:path>")
+def home(path):
     return jsonify({
         "message": f"Hello from Server: {SERVER_ID}",
+        "path": path,
         "status": "successful"
     }), 200
 

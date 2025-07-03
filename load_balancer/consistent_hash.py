@@ -1,80 +1,95 @@
-import math
+import hashlib
+import bisect
+from collections import defaultdict
 import matplotlib.pyplot as plt
-from collections import Counter
-
 
 class ConsistentHashRing:
-    def __init__(self, num_servers=3, virtual_nodes_per_server=9, slots=512):
-        self.num_servers = num_servers
-        self.virtual_nodes = virtual_nodes_per_server
+    def __init__(self, server_names, virtual_nodes=9, slots=512):
+        """
+        Initialize with actual server names
+        :param server_names: List of server names (e.g., ["Server1", "Server2", "Server3"])
+        :param virtual_nodes: Number of virtual nodes per server
+        :param slots: Total number of slots in the ring
+        """
+        self.server_names = server_names
+        self.virtual_nodes = virtual_nodes
         self.slots = slots
-        self.ring = [None] * slots  # each slot points to a server_id
-        self.server_map = {}  # maps server_id -> list of slots
-
+        self.ring = []  # List of (position, server_name)
+        
         self._initialize_ring()
 
-    def _hash_virtual(self, server_id, replica_id):
-        # Φ(i, j) = i + j + 2^j + 25 mod 512
-        return (server_id + replica_id + 2 ** replica_id + 25) % self.slots # consistent hash for virtual nodes
-
-    def _hash_request(self, request_id):
-        # H(i) = i + 2^i + 17 mod 512
-        return (request_id + 2 ** request_id + 17) % self.slots
-
-    def _linear_probe(self, start):
-        for i in range(self.slots): #iterates to find a free slot
-            idx = (start + i) % self.slots
-            if self.ring[idx] is None: #avoids collisions btwn virtual servers
-                return idx
-        raise Exception("Hash ring is full") 
+    def _hash(self, key):
+        """Consistent hash function using SHA-1"""
+        return int(hashlib.sha1(key.encode()).hexdigest(), 16) % self.slots
 
     def _initialize_ring(self):
-        for server_id in range(self.num_servers):
-            self.server_map[server_id] = []
-            for replica in range(self.virtual_nodes):
-                slot = self._hash_virtual(server_id, replica)
-                if self.ring[slot] is not None:
-                    slot = self._linear_probe(slot)
-                self.ring[slot] = server_id
-                self.server_map[server_id].append(slot)
+        """Initialize the hash ring with virtual nodes"""
+        self.ring = []
+        for server in self.server_names:
+            self._add_server_to_ring(server)
 
-    def get_server_for_request(self, request_id):
-        slot = self._hash_request(request_id)
-        for i in range(self.slots):
-            idx = (slot + i) % self.slots
-            if self.ring[idx] is not None:
-                return self.ring[idx]
-        return None
+    def _add_server_to_ring(self, server_name):
+        """Add a server's virtual nodes to the ring"""
+        for i in range(self.virtual_nodes):
+            vnode_key = f"{server_name}-vnode-{i}"
+            position = self._hash(vnode_key)
+            bisect.insort(self.ring, (position, server_name))
 
-# #TESTING THE CONSISTENT HASH RING 
+    def add_server(self, server_name):
+        """Add a new server to the hash ring"""
+        if server_name not in self.server_names:
+            self.server_names.append(server_name)
+            self._add_server_to_ring(server_name)
 
-# if __name__ == "__main__":
-#     ch = ConsistentHashRing()
+    def remove_server(self, server_name):
+        """Remove a server from the hash ring"""
+        if server_name in self.server_names:
+            self.server_names.remove(server_name)
+            # Remove all virtual nodes for this server
+            self.ring = [(pos, srv) for (pos, srv) in self.ring if srv != server_name]
 
-#     print("=== Request Routing ===")
-#     for req in range(10):
-#         server = ch.get_server_for_request(req)
-#         print(f"Request {req} routed to Server {server}")
+    def get_server(self, key):
+        """Get the server responsible for the given key"""
+        if not self.ring:
+            return None
+            
+        position = self._hash(str(key))
+        
+        # Find the first node with position >= hash
+        idx = bisect.bisect_left(self.ring, (position, ""))
+        
+        # Wrap around if necessary
+        if idx == len(self.ring):
+            idx = 0
+            
+        return self.ring[idx][1]  # Return the server name
 
-#     print("\n=== Slot Assignments ===")
-#     for i, server_id in enumerate(ch.ring):
-#         if server_id is not None:
-#             print(f"Slot {i} -> Server {server_id}")
-     
-    
-# server_counts = Counter(ch.ring)
-# if None in server_counts:
-#     del server_counts[None]
-
-# # Prepare labels and data
-# labels = [f"Server {sid}" for sid in server_counts.keys()]
-# sizes = list(server_counts.values())
-
-
-# # --- PIE CHART ---
-# plt.figure(figsize=(6,6))
-# plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
-# plt.title("Slot Ownership per Server (Consistent Hashing)")
-# plt.axis('equal')  # Equal aspect ratio ensures pie is round.
-# plt.show()
-    
+    def visualize(self):
+        """Visualize the hash ring distribution"""
+        plt.figure(figsize=(12, 6))
+        
+        # Group positions by server
+        server_positions = defaultdict(list)
+        for pos, server in self.ring:
+            server_positions[server].append(pos)
+        
+        # Create plot
+        colors = plt.cm.get_cmap('tab10', len(self.server_names))
+        
+        for i, server in enumerate(self.server_names):
+            positions = server_positions[server]
+            plt.scatter(
+                positions, [i] * len(positions),
+                label=server,
+                color=colors(i),
+                s=100,
+                alpha=0.7
+            )
+        
+        plt.yticks(range(len(self.server_names)), self.server_names)
+        plt.title(f"Consistent Hash Ring (Servers: {len(self.server_names)}, Virtual Nodes: {self.virtual_nodes})")
+        plt.xlabel("Slot Position")
+        plt.grid(True, alpha=0.3)
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        plt.show()

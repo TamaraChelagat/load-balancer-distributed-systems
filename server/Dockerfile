@@ -1,22 +1,20 @@
-# server/Dockerfile
+# Use Python slim image
 FROM python:3.12-slim
 
-# Set working directory
+RUN apt-get update && \
+    apt-get install -y curl && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-#Install curl
-RUN apt-get update && apt-get install -y curl
-# Copy code and requirements
-COPY requirements.txt .
+COPY requirements.txt . 
+
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py ./
+COPY app.py .
 
-# Expose port 5000
 EXPOSE 5000
 
-# Define default environment variable
 ENV SERVER_ID=0
 
-# Run the server
 CMD ["python", "app.py"]

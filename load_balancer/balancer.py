@@ -1,63 +1,59 @@
 from flask import Flask, jsonify, request
-import subprocess #run docker commands
-import random #unique container names
+import random
 import string
+import requests
+import logging
+import time
 from consistent_hash import ConsistentHashRing
 
 app = Flask(__name__)
 
-# Global configuration
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Configuration
 NUM_SERVERS = 3
 VIRTUAL_NODES = 9
 SLOTS = 512
+SERVER_PORT = 5000
 
-# Track running server container names
+# Initialize with actual server names
 server_names = [f"Server{i+1}" for i in range(NUM_SERVERS)]
-
-
-hash_ring = ConsistentHashRing(num_servers=NUM_SERVERS, virtual_nodes_per_server=VIRTUAL_NODES, slots=SLOTS)
-
+hash_ring = ConsistentHashRing(
+    server_names=server_names,
+    virtual_nodes=VIRTUAL_NODES,
+    slots=SLOTS
+)
 
 def generate_random_hostname():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
-#Starts a server container with the name server_name on Docker network n1
-def start_server_container(server_name):
-    subprocess.run(["docker", "run", "-d", "--name", server_name, "-e", f"SERVER_ID={server_name}",
-                    "--network", "n1", "simple-server"], stdout=subprocess.DEVNULL)
-
-#Stops and removes the specified server container
-def stop_and_remove_container(server_name):
-    subprocess.run(["docker", "rm", "-f", server_name], stdout=subprocess.DEVNULL)
-
-#replica status
 @app.route("/rep", methods=["GET"])
 def get_replicas():
+    """Endpoint to get current replica status"""
     return jsonify({
         "N": len(server_names),
         "replicas": server_names
     }), 200
 
-#Addign new server instances to scale up with increasing client numbers
 @app.route("/add", methods=["POST"])
 def add_replicas():
+    """Add new server replicas"""
     data = request.get_json()
     n = data.get("n", 0)
     hostnames = data.get("hostnames", [])
 
     if len(hostnames) > n:
-        return jsonify({"error": "Too many hostnames provided."}), 400
+        return jsonify({"error": "Too many hostnames provided"}), 400
 
-#For each new server: use a given hostname if available; otherwise, it generates one
     new_servers = []
-
     for i in range(n):
         name = hostnames[i] if i < len(hostnames) else generate_random_hostname()
-        if name in server_names:
-            continue  # avoid duplicates
-        server_names.append(name)
-        start_server_container(name)
-        new_servers.append(name)
+        if name not in server_names:
+            server_names.append(name)
+            hash_ring.add_server(name)  # Use the add_server method
+            new_servers.append(name)
 
     return jsonify({
         "message": {
@@ -67,24 +63,22 @@ def add_replicas():
         "status": "successful"
     }), 200
 
-
-#Removes server instances to scale down with decresing client or system maintenance  
 @app.route("/rm", methods=["DELETE"])
 def remove_replicas():
+    """Remove server replicas"""
     data = request.get_json()
     n = data.get("n", 0)
     hostnames = data.get("hostnames", [])
 
     if len(hostnames) > n:
-        return jsonify({"error": "Too many hostnames in payload."}), 400
+        return jsonify({"error": "Too many hostnames provided"}), 400
 
     to_remove = []
-#Removes up to n containers either specified or randomly selected
     for i in range(n):
         name = hostnames[i] if i < len(hostnames) else random.choice(server_names)
         if name in server_names:
             server_names.remove(name)
-            stop_and_remove_container(name)
+            hash_ring.remove_server(name)  # Use the remove_server method
             to_remove.append(name)
 
     return jsonify({
@@ -95,30 +89,35 @@ def remove_replicas():
         "status": "successful"
     }), 200
 
-#Request in this endpoint gets routed to a server replica as scheduled by the consistenthashing algorithm of the load balancer
 @app.route("/<path:req_path>", methods=["GET"])
 def route_request(req_path):
-    # Use the path string itself as a hash input
-    request_id = sum(ord(c) for c in req_path) % SLOTS
-    target_server = hash_ring.get_server_for_request(request_id)
-
-    if target_server is None:
-        return jsonify({"error": "No server found"}), 500
-
+    """Route request to appropriate server"""
     try:
-        server_name = server_names[target_server]
-    except IndexError:
-        return jsonify({"error": "Target server index out of range"}), 500
-
-    try:
-        result = subprocess.run(
-            ["docker", "exec", server_name, "curl", "-s", f"http://localhost:5000/{req_path}"],
-            capture_output=True, text=True
+        # Generate unique request key
+        request_key = f"{req_path}-{time.time()}"
+        
+        # Get target server directly by name
+        target_server = hash_ring.get_server(request_key)
+        if not target_server:
+            return jsonify({"error": "No servers available"}), 500
+        
+        logger.info(f"Routing request to {target_server}")
+        
+        # Forward request to target server
+        response = requests.get(
+            f"http://{target_server}:{SERVER_PORT}/{req_path}",
+            timeout=3
         )
-        return result.stdout, 200
-    except Exception as e:
+        return response.json(), response.status_code
+        
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request to {target_server} failed: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
+    except Exception as e:
+        logger.error(f"Routing error: {str(e)}")
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    # Visualize the initial hash ring distribution
+    hash_ring.visualize()
+    app.run(host="0.0.0.0", port=5000)  # Changed to 5001 to match your setup

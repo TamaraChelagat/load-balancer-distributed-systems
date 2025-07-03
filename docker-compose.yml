@@ -1,12 +1,15 @@
 services:
   balancer:
     build:
-      context: ./load_balancer
+      context: .                   # <-- set context to the project root
+      dockerfile: load_balancer/Dockerfile
     container_name: balancer
     ports:
-      - "5000:5000"
+      - "5001:5000"
     networks:
       - n1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - server1
       - server2
@@ -42,4 +45,3 @@ services:
 networks:
   n1:
     driver: bridge
-
