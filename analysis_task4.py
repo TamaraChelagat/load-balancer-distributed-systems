@@ -32,7 +32,7 @@ class LoadBalancerAnalyzer:
             print(f"Request failed: {e}")
         return None
 
-    async def run_experiment(self, num_servers, num_requests=10000):
+    async def run_experiment(self, num_servers, num_requests=1000):
         """Run a single experiment with given parameters"""
         server_hits = Counter()
 
