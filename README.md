@@ -15,8 +15,6 @@ This repository contains an implementation of a customizable load balancer that 
 
 ## System Architecture
 
-![System Diagram]
-
 The system consists of:
 1. **Load Balancer**: Routes client requests to appropriate servers using consistent hashing
 2. **Server Replicas**: Multiple instances of a simple web server that handle requests
@@ -34,7 +32,7 @@ We implemented consistent hashing with the following parameters:
 
 ### Virtual Servers
 Each physical server is represented by K virtual servers in the hash ring, ensuring better load distribution during failures.
-![alt text](<Screenshot 2025-07-03 194512.png>)
+![alt text](<images/Screenshot 2025-07-03 194512.png>)
 
 
 ### Failure Handling
@@ -42,7 +40,7 @@ The load balancer periodically checks server health via heartbeat endpoints. If 
 1. It's removed from the hash ring
 2. A new replica is spawned
 3. Virtual servers are recreated for the new instance
-![alt text](image-1.png)
+![alt text](images/image-1.png)
 
 ## Setup Instructions
 
@@ -130,7 +128,7 @@ The load balancer periodically checks server health via heartbeat endpoints. If 
 
 ### Experiment A-1: Load Distribution (N=3)
 
-![Load Distribution](load_distribution.png)
+![Load Distribution](images/request_distribution.png)
 
 - **Observation**: Requests were nearly evenly distributed across all servers
 - **Server 1**: 3,342 requests (33.42%)
@@ -141,7 +139,7 @@ The consistent hashing algorithm with virtual servers effectively balanced the l
 
 ### Experiment A-2: Scalability Test
 
-![Scalability Test](scalability.png)
+![Scalability Test](images/scalability_analysis.png)
 
 | N | Average Load per Server |
 |---|-------------------------|
