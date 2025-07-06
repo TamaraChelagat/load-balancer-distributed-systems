@@ -196,7 +196,6 @@ class LoadBalancerAnalyzer:
         if target_server in verification_hits:
             print(f"\nFAILURE: {target_server} still handled {verification_hits[target_server]} requests!")
         else:
-            print(f"\nSUCCESS: {target_server} handled 0 requests after removal")
 
         # Check load distribution
         expected_avg = sum(verification_hits.values()) / 2
