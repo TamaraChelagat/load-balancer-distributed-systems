@@ -134,37 +134,85 @@ class LoadBalancerAnalyzer:
         plt.show()
 
     async def test_failure_recovery(self):
-        """Test server failure and recovery"""
+        """Enhanced server failure and recovery test with explicit removal verification"""
         print("\n=== Testing Failure Recovery ===")
-
-        servers = await self.get_current_servers()
-        print(f"Initial servers: {servers}")
-
-        if not servers:
-            print("No servers available for failure test.")
+        
+        # Scale down to exactly 3 servers first
+        print("Ensuring we have exactly 3 servers...")
+        await self.adjust_server_count(3)
+        await asyncio.sleep(2)  # Allow time for scaling
+        
+        # Get initial state
+        initial_servers = await self.get_current_servers()
+        if not initial_servers or len(initial_servers) != 3:
+            print(f"ERROR: Expected 3 servers, got {len(initial_servers)}")
             return
-
-        failed_server = servers[0]
-        print(f"\nSimulating failure of {failed_server}")
-
-        # In real use, you'd actually kill the container. Here we just run requests.
-        server_hits = Counter()
-        for i in range(1000):
-            server_id = await self.make_request(f"failtest-{i}")
-            if server_id:
-                server_hits[server_id] += 1
-
-        print("\nRequest distribution during simulated failure:")
-        for server, count in server_hits.items():
+            
+        print(f"Initial servers: {initial_servers}")
+        
+        # Take baseline measurements
+        print("\nRunning baseline test with 3 servers...")
+        baseline_hits = await self.run_experiment(3, 1000)
+        print("\nBaseline distribution:")
+        for server, count in baseline_hits.items():
             print(f"{server}: {count} requests")
 
-        new_servers = await self.get_current_servers()
-        print(f"\nCurrent servers: {new_servers}")
+        # Explicitly remove Server1 (or first server if Server1 doesn't exist)
+        target_server = "Server1"
+        if target_server not in initial_servers:
+            target_server = initial_servers[0]
+            print(f"Note: Using {target_server} as target since Server1 not found")
+            
+        print(f"\nActually removing {target_server}...")
+        try:
+            async with self.session.delete(
+                f"{self.balancer_url}/rm",
+                json={"n": 1, "specific": target_server}  # Assuming API supports specific removal
+            ) as resp:
+                if resp.status != 200:
+                    print(f"Failed to remove server: HTTP {resp.status}")
+                    return
+                print(f"Successfully removed {target_server}")
+        except Exception as e:
+            print(f"Error removing server: {e}")
+            return
 
-        if len(new_servers) == len(servers):
-            print("\nWarning: Server count didn't change - check your failure detection logic!")
+        # Verify removal
+        current_servers = await self.get_current_servers()
+        if target_server in current_servers:
+            print(f"\nERROR: {target_server} still present after removal")
+            return
+        print(f"\nCurrent servers after removal: {current_servers}")
+
+        # Re-run test to confirm target handles 0 requests
+        print("\nRunning verification test with removed server...")
+        verification_hits = await self.run_experiment(2, 1000)
+        
+        print("\nVerification distribution:")
+        for server, count in verification_hits.items():
+            print(f"{server}: {count} requests")
+
+        # Check if removed server still getting requests
+        if target_server in verification_hits:
+            print(f"\nFAILURE: {target_server} still handled {verification_hits[target_server]} requests!")
         else:
-            print("\nLoad balancer successfully maintained server count.")
+            print(f"\nSUCCESS: {target_server} handled 0 requests after removal")
+
+        # Check load distribution
+        expected_avg = sum(verification_hits.values()) / 2
+        imbalances = [
+            abs(count - expected_avg)/expected_avg 
+            for count in verification_hits.values()
+        ]
+        
+        if any(imb > 0.25 for imb in imbalances):
+            print("\nWARNING: Significant load imbalance after removal")
+        else:
+            print("\nLoad successfully redistributed to remaining servers")
+
+        # Restore original state
+        print("\nRestoring original server count...")
+        await self.adjust_server_count(3)
 
     async def run_all_analyses(self):
         """Run all required analyses"""
