@@ -133,93 +133,93 @@ class LoadBalancerAnalyzer:
         plt.savefig("scalability_analysis.png")
         plt.show()
 
-async def test_failure_recovery(self):
-    """Enhanced server failure and recovery test with better error handling"""
-    print("\n=== Testing Failure Recovery ===")
-    
-    # Scale down to exactly 3 servers first
-    print("Ensuring we have exactly 3 servers...")
-    await self.adjust_server_count(3)
-    await asyncio.sleep(2)  # Allow time for scaling
-    
-    # Get initial state
-    initial_servers = await self.get_current_servers()
-    if not initial_servers or len(initial_servers) != 3:
-        print(f"ERROR: Expected 3 servers, got {len(initial_servers)}")
-        return
+    async def test_failure_recovery(self):
+        """Enhanced server failure and recovery test with better error handling"""
+        print("\n=== Testing Failure Recovery ===")
         
-    print(f"Initial servers: {initial_servers}")
-    
-    # Take baseline measurements
-    print("\nRunning baseline test with 3 servers...")
-    baseline_hits = await self.run_experiment(3, 1000)
-    print("\nBaseline distribution:")
-    for server, count in baseline_hits.items():
-        print(f"{server}: {count} requests")
-
-    # Select target server (prioritize Server1 if exists)
-    target_server = next((s for s in initial_servers if s == "Server1"), initial_servers[0])
-    print(f"\nSelected target server for removal: {target_server}")
-
-    # Attempt removal with detailed debugging
-    print(f"\nAttempting to remove {target_server}...")
-    try:
-        async with self.session.delete(
-            f"{self.balancer_url}/rm",
-            json={"n": 1, "specific": target_server},
-            timeout=aiohttp.ClientTimeout(total=10)
-        ) as resp:
-            response_data = await resp.json()
-            print(f"Removal response status: {resp.status}")
-            print(f"Response data: {response_data}")
+        # Scale down to exactly 3 servers first
+        print("Ensuring we have exactly 3 servers...")
+        await self.adjust_server_count(3)
+        await asyncio.sleep(2)  # Allow time for scaling
+        
+        # Get initial state
+        initial_servers = await self.get_current_servers()
+        if not initial_servers or len(initial_servers) != 3:
+            print(f"ERROR: Expected 3 servers, got {len(initial_servers)}")
+            return
             
-            if resp.status != 200:
-                print(f"Failed to remove server: HTTP {resp.status}")
-                return
-            print(f"API reported successful removal of {target_server}")
-    except Exception as e:
-        print(f"Error during removal: {e}")
-        return
+        print(f"Initial servers: {initial_servers}")
+        
+        # Take baseline measurements
+        print("\nRunning baseline test with 3 servers...")
+        baseline_hits = await self.run_experiment(3, 1000)
+        print("\nBaseline distribution:")
+        for server, count in baseline_hits.items():
+            print(f"{server}: {count} requests")
 
-    # Verify removal with retries
-    print("\nVerifying removal...")
-    remaining_attempts = 5
-    current_servers = initial_servers.copy()
-    
-    while remaining_attempts > 0 and target_server in current_servers:
-        await asyncio.sleep(1)
-        current_servers = await self.get_current_servers()
-        print(f"Current servers (attempt {6-remaining_attempts}): {current_servers}")
-        remaining_attempts -= 1
+        # Select target server (prioritize Server1 if exists)
+        target_server = next((s for s in initial_servers if s == "Server1"), initial_servers[0])
+        print(f"\nSelected target server for removal: {target_server}")
 
-    if target_server in current_servers:
-        print(f"\nCRITICAL ERROR: {target_server} still present after removal attempts")
-        print("Possible causes:")
-        print("- The /rm endpoint isn't properly removing servers")
-        print("- The load balancer isn't updating its server list")
-        print("- The server is automatically rejoining")
-        return
-    else:
-        print(f"\nSUCCESS: {target_server} was successfully removed")
+        # Attempt removal with detailed debugging
+        print(f"\nAttempting to remove {target_server}...")
+        try:
+            async with self.session.delete(
+                f"{self.balancer_url}/rm",
+                json={"n": 1, "specific": target_server},
+                timeout=aiohttp.ClientTimeout(total=10)
+            ) as resp:
+                response_data = await resp.json()
+                print(f"Removal response status: {resp.status}")
+                print(f"Response data: {response_data}")
+                
+                if resp.status != 200:
+                    print(f"Failed to remove server: HTTP {resp.status}")
+                    return
+                print(f"API reported successful removal of {target_server}")
+        except Exception as e:
+            print(f"Error during removal: {e}")
+            return
 
-    # Re-run test to confirm target handles 0 requests
-    print("\nRunning verification test with removed server...")
-    verification_hits = await self.run_experiment(2, 1000)
-    
-    print("\nVerification distribution:")
-    for server, count in verification_hits.items():
-        print(f"{server}: {count} requests")
+        # Verify removal with retries
+        print("\nVerifying removal...")
+        remaining_attempts = 5
+        current_servers = initial_servers.copy()
+        
+        while remaining_attempts > 0 and target_server in current_servers:
+            await asyncio.sleep(1)
+            current_servers = await self.get_current_servers()
+            print(f"Current servers (attempt {6-remaining_attempts}): {current_servers}")
+            remaining_attempts -= 1
 
-    # Check if removed server still getting requests
-    if target_server in verification_hits:
-        print(f"\nFAILURE: {target_server} still handled {verification_hits[target_server]} requests!")
-        print("This suggests the load balancer is still routing to the removed server")
-    else:
-        print(f"\nSUCCESS: {target_server} handled 0 requests after removal")
+        if target_server in current_servers:
+            print(f"\nCRITICAL ERROR: {target_server} still present after removal attempts")
+            print("Possible causes:")
+            print("- The /rm endpoint isn't properly removing servers")
+            print("- The load balancer isn't updating its server list")
+            print("- The server is automatically rejoining")
+            return
+        else:
+            print(f"\nSUCCESS: {target_server} was successfully removed")
 
-    # Restore original state
-    print("\nRestoring original server count...")
-    await self.adjust_server_count(3)
+        # Re-run test to confirm target handles 0 requests
+        print("\nRunning verification test with removed server...")
+        verification_hits = await self.run_experiment(2, 1000)
+        
+        print("\nVerification distribution:")
+        for server, count in verification_hits.items():
+            print(f"{server}: {count} requests")
+
+        # Check if removed server still getting requests
+        if target_server in verification_hits:
+            print(f"\nFAILURE: {target_server} still handled {verification_hits[target_server]} requests!")
+            print("This suggests the load balancer is still routing to the removed server")
+        else:
+            print(f"\nSUCCESS: {target_server} handled 0 requests after removal")
+
+        # Restore original state
+        print("\nRestoring original server count...")
+        await self.adjust_server_count(3)
 
     async def run_all_analyses(self):
         """Run all required analyses"""
