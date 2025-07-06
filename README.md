@@ -21,8 +21,7 @@ A dynamic load balancer that distributes incoming requests across multiple backe
 │   ├── server.py            # Backend server mock
 ├── analysis/                # Performance tests
 │   ├── analysis_task4.py    # Experiment runner (e.g., N=3 servers)
-│   ├── plots/               # Generated graphs
-├── docs/                    # Design documents
+│   ├── plots/               # Generated graphs                  
 ├── requirements.txt         # Python dependencies
 └── README.md                # This file
 ```
@@ -44,15 +43,15 @@ pip install -r requirements.txt
 ### **How to Run**  
 1. **Start Backend Servers**:  
    ```bash
-   python src/server.py --port 5000  # Repeat for 5001, 5002...
+   python /server/app.py --port 5000  # Repeat for 5001, 5002...
    ```
 2. **Launch Load Balancer**:  
    ```bash
-   python src/load_balancer.py --algorithm round_robin
+   python3 /load_balancer/balancer.py 
    ```
 3. **Run Analysis**:  
    ```bash
-   python analysis/analysis_task4.py
+   python3 analysis_task4.py
    ```
 
 ---
