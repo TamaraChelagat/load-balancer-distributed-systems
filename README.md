@@ -40,7 +40,6 @@ The load balancer periodically checks server health via heartbeat endpoints. If 
 1. It's removed from the hash ring
 2. A new replica is spawned
 3. Virtual servers are recreated for the new instance
-![alt text](images/image-1.png)
 
 ## Setup Instructions
 
@@ -157,6 +156,7 @@ The consistent hashing algorithm with virtual servers effectively balanced the l
   - Failure detected within 5 seconds
   - New replica spawned within 10 seconds
   - Load redistributed smoothly with minimal disruption
+![alt text](images/image-1.png)
 
 ### Experiment A-4: Modified Hash Functions
 Using alternative hash functions showed:
