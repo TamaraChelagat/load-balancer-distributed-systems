@@ -1,15 +1,14 @@
-import hashlib
 import bisect
 from collections import defaultdict
 import matplotlib.pyplot as plt
 
 class ConsistentHashRing:
-    def __init__(self, server_names, virtual_nodes=9, slots=512):
+    def _init_(self, server_names, virtual_nodes=9, slots=512):
         """
         Initialize with actual server names
         :param server_names: List of server names (e.g., ["Server1", "Server2", "Server3"])
-        :param virtual_nodes: Number of virtual nodes per server
-        :param slots: Total number of slots in the ring
+        :param virtual_nodes: Number of virtual nodes per server (K)
+        :param slots: Total number of slots in the ring (M)
         """
         self.server_names = server_names
         self.virtual_nodes = virtual_nodes
@@ -18,9 +17,16 @@ class ConsistentHashRing:
         
         self._initialize_ring()
 
-    def _hash(self, key):
-        """Consistent hash function using SHA-1"""
-        return int(hashlib.sha1(key.encode()).hexdigest(), 16) % self.slots
+    def _request_hash(self, key):
+        """Hash function for request mapping: H(i) = i + 2i + 1"""
+        i = int(key)
+        return (i + 2 * i + 1) % self.slots
+
+    def _virtual_node_hash(self, server_id, vnode_id):
+        """Hash function for virtual server mapping: Φ(i,j) = i + j + 2j + 25"""
+        i = int(server_id.replace("Server", ""))  # Extract numeric ID
+        j = vnode_id
+        return (i + j + 2 * j + 25) % self.slots
 
     def _initialize_ring(self):
         """Initialize the hash ring with virtual nodes"""
@@ -30,9 +36,9 @@ class ConsistentHashRing:
 
     def _add_server_to_ring(self, server_name):
         """Add a server's virtual nodes to the ring"""
-        for i in range(self.virtual_nodes):
-            vnode_key = f"{server_name}-vnode-{i}"
-            position = self._hash(vnode_key)
+        server_id = server_name.replace("Server", "")
+        for j in range(self.virtual_nodes):
+            position = self._virtual_node_hash(server_id, j)
             bisect.insort(self.ring, (position, server_name))
 
     def add_server(self, server_name):
@@ -53,7 +59,7 @@ class ConsistentHashRing:
         if not self.ring:
             return None
             
-        position = self._hash(str(key))
+        position = self._request_hash(str(key))
         
         # Find the first node with position >= hash
         idx = bisect.bisect_left(self.ring, (position, ""))
@@ -87,9 +93,38 @@ class ConsistentHashRing:
             )
         
         plt.yticks(range(len(self.server_names)), self.server_names)
-        plt.title(f"Consistent Hash Ring (Servers: {len(self.server_names)}, Virtual Nodes: {self.virtual_nodes})")
+        plt.title(f"Consistent Hash Ring (Servers: {len(self.server_names)}, Virtual Nodes: {self.virtual_nodes}, Slots: {self.slots})")
         plt.xlabel("Slot Position")
         plt.grid(True, alpha=0.3)
         plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.tight_layout()
         plt.show()
+
+
+if _name_ == "_main_":
+    # Example usage
+    ring = ConsistentHashRing(["Server1", "Server2", "Server3"])
+    
+    print("Hash ring initialized with:")
+    print(f"- {len(ring.server_names)} physical servers")
+    print(f"- {ring.virtual_nodes} virtual nodes per server")
+    print(f"- {ring.slots} total slots")
+    
+    # Test request routing
+    test_keys = [123456, 789012, 345678, 901234]
+    for key in test_keys:
+        server = ring.get_server(key)
+        print(f"Request {key} is routed to {server}")
+    
+    # Visualize the ring
+    ring.visualize()
+    
+    # Demonstrate adding a server
+    print("\nAdding Server4...")
+    ring.add_server("Server4")
+    ring.visualize()
+    
+    # Demonstrate removing a server
+    print("\nRemoving Server2...")
+    ring.remove_server("Server2")
+    ring.visualize()
