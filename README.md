@@ -58,12 +58,12 @@ The load balancer periodically checks server health via heartbeat endpoints. If 
 2. Build and run the system:
    ```bash
    make build
-   make run
+   make up
    ```
 
 3. To stop the system:
    ```bash
-   make stop
+   make down
    ```
 
 ## API Documentation
