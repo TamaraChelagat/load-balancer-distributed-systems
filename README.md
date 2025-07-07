@@ -163,6 +163,7 @@ Using alternative hash functions showed:
 - Similar load distribution patterns
 - Slightly different distributions but still balanced
 - Confirmed algorithm robustness to hash function variations
+![alt text](<images/custom_hash_function.png>)
 
 ## Design Choices
 
