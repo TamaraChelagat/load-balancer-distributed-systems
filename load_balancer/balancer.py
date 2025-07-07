@@ -6,11 +6,11 @@ import logging
 import time
 from consistent_hash import ConsistentHashRing
 
-app = Flask(__name__)
+app = Flask(_name_)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(_name_)
 
 # Configuration
 NUM_SERVERS = 3
@@ -117,7 +117,7 @@ def route_request(req_path):
         logger.error(f"Routing error: {str(e)}")
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
-if __name__ == "__main__":
+if _name_ == "_main_":
     # Visualize the initial hash ring distribution
     hash_ring.visualize()
     app.run(host="0.0.0.0", port=5000)  # Changed to 5001 to match your setup
