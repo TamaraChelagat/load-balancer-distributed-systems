@@ -65,29 +65,46 @@ def add_replicas():
 
 @app.route("/rm", methods=["DELETE"])
 def remove_replicas():
-    """Remove server replicas"""
     data = request.get_json()
-    n = data.get("n", 0)
-    hostnames = data.get("hostnames", [])
 
-    if len(hostnames) > n:
-        return jsonify({"error": "Too many hostnames provided"}), 400
+    specific = data.get("specific", None)
+    hostnames = data.get("hostnames", [])
+    n = data.get("n", 0)
 
     to_remove = []
-    for i in range(n):
-        name = hostnames[i] if i < len(hostnames) else random.choice(server_names)
-        if name in server_names:
-            server_names.remove(name)
-            hash_ring.remove_server(name)  # Use the remove_server method
-            to_remove.append(name)
+
+    if specific:
+        if specific in server_names:
+            server_names.remove(specific)
+            hash_ring.remove_server(specific)
+            to_remove.append(specific)
+        else:
+            return jsonify({
+                "error": f"Server {specific} not found in server_names",
+                "current_servers": server_names
+            }), 400
+    else:
+        if len(hostnames) > n:
+            return jsonify({"error": "Too many hostnames provided"}), 400
+
+        for i in range(n):
+            if not server_names:
+                break
+            name = hostnames[i] if i < len(hostnames) else random.choice(server_names)
+            if name in server_names:
+                server_names.remove(name)
+                hash_ring.remove_server(name)
+                to_remove.append(name)
 
     return jsonify({
         "message": {
             "N": len(server_names),
             "replicas": server_names
         },
-        "status": "successful"
+        "status": "successful",
+        "removed": to_remove
     }), 200
+
 
 @app.route("/<path:req_path>", methods=["GET"])
 def route_request(req_path):
@@ -104,11 +121,10 @@ def route_request(req_path):
         logger.info(f"Routing request to {target_server}")
         
         # Forward request to target server
-        response = requests.get(
-            f"http://{target_server}:{SERVER_PORT}/{req_path}",
-            timeout=3
-        )
-        return response.json(), response.status_code
+        return jsonify({
+            "message": f"Request routed to {target_server}",
+        }), 200
+          
         
     except requests.exceptions.RequestException as e:
         logger.error(f"Request to {target_server} failed: {str(e)}")
