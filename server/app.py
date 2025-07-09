@@ -1,9 +1,8 @@
-
 # server/app.py
 from flask import Flask, jsonify
 import os
 
-app = Flask(__name__)
+app = Flask(_name_)
 
 # Get the server ID from the environment variable
 SERVER_ID = os.getenv("SERVER_ID", "unknown")
@@ -24,5 +23,5 @@ def home(path):
 def heartbeat():
     return "", 200
 
-if __name__ == "__main__":
+if _name_ == "_main_":
     app.run(host="0.0.0.0", port=5000)
