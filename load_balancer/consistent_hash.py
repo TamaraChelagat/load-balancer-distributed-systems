@@ -3,7 +3,7 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 
 class ConsistentHashRing:
-    def _init_(self, server_names, virtual_nodes=9, slots=512):
+    def __init__(self, server_names, virtual_nodes=9, slots=512):
         """
         Initialize with actual server names
         :param server_names: List of server names (e.g., ["Server1", "Server2", "Server3"])
@@ -101,7 +101,7 @@ class ConsistentHashRing:
         plt.show()
 
 
-if _name_ == "_main_":
+if __name__ == "__main_":
     # Example usage
     ring = ConsistentHashRing(["Server1", "Server2", "Server3"])
     

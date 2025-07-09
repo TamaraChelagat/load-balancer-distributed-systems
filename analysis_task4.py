@@ -7,7 +7,7 @@ from collections import Counter
 import numpy as np
 
 class LoadBalancerAnalyzer:
-    def _init_(self, balancer_url="http://localhost:5001"):
+    def __init__(self, balancer_url="http://localhost:5001"):
         self.balancer_url = balancer_url
         self.session = None
 
@@ -241,6 +241,6 @@ class LoadBalancerAnalyzer:
         finally:
             await self.close_session()
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     analyzer = LoadBalancerAnalyzer()
     asyncio.run(analyzer.run_all_analyses())
